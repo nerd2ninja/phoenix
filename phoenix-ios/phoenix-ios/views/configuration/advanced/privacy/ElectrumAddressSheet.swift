@@ -651,19 +651,21 @@ struct ElectrumAddressSheet: View {
 				self.tlsConnectionCheckDidFinish(result)
 			}
 		}
-	#if DEBUG
-		let cert = TLSConnectionCheck.debugCert()
-		thisCheck = TLSConnectionCheck.debug(
-			result: Result.success(TLSConnectionStatus.untrusted(cert: cert)),
-			delay: 1.0,
-			completion: completion)
-	#else
+		
+//	#if DEBUG
+//		let cert = TLSConnectionCheck.debugCert()
+//		thisCheck = TLSConnectionCheck.debug(
+//			result: Result.success(TLSConnectionStatus.untrusted(cert: cert)),
+//			delay: 1.0,
+//			completion: completion
+//		)
+//	#endif
+		
 		thisCheck = TLSConnectionCheck.check(
 			host: checkedHost,
 			port: checkedPort,
 			completion: completion
 		)
-	#endif
 		
 		disableTextFields = true
 		checkResult = nil

@@ -16,6 +16,10 @@ struct ElectrumConfigurationView: MVIView {
 	
 	@StateObject var mvi = MVIState({ $0.electrumConfiguration() })
 	
+	@State var didAppear = false
+	
+	@EnvironmentObject var deepLinkManager: DeepLinkManager
+	
 	@Environment(\.controllerFactory) var factoryEnv
 	var factory: ControllerFactory { return factoryEnv }
 	
@@ -26,7 +30,7 @@ struct ElectrumConfigurationView: MVIView {
 		var status: String
 		var address: String
 		
-		if mvi.model.connection == Lightning_kmpConnection.established {
+		if mvi.model.connection is Lightning_kmpConnection.ESTABLISHED {
 			
 			status = NSLocalizedString("Connected to:", comment: "Connection status")
 			if let server = mvi.model.currentServer {
@@ -35,7 +39,7 @@ struct ElectrumConfigurationView: MVIView {
 				address = "?" // this state shouldn't be possible
 			}
 			
-		} else if mvi.model.connection == .establishing {
+		} else if mvi.model.connection is Lightning_kmpConnection.ESTABLISHING {
 			
 			status = NSLocalizedString("Connecting to:", comment: "Connection status")
 			if let server = mvi.model.currentServer {
@@ -133,6 +137,22 @@ struct ElectrumConfigurationView: MVIView {
 			
 		} // </List>
 		.listStyle(GroupedListStyle())
+		.onAppear() {
+			onAppear()
+		}
+	}
+	
+	func onAppear() {
+		log.trace("onAppear()")
+		
+		if !didAppear {
+			didAppear = true
+			
+			if deepLinkManager.deepLink == .electrum {
+				// Reached our destination
+				deepLinkManager.broadcast(nil)
+			}
+		}
 	}
 	
 	func didTapModify() {
