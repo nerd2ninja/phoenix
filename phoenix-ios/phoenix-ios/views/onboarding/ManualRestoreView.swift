@@ -170,7 +170,7 @@ struct EnterSeedView: View, ViewName {
 	@State var wordInput: String = ""
 	@State var isProcessingPaste = false
 	
-	@State var selectedLanguage: MnemonicLanguage = MnemonicLanguage.defaultCase
+	@State var selectedLanguage: MnemonicLanguage = MnemonicLanguage.english
 	
 	@Namespace var topID
 	@Namespace var inputID
@@ -190,7 +190,6 @@ struct EnterSeedView: View, ViewName {
 				main(scrollViewProxy)
 			}
 		}
-		.navigationBarItems(trailing: languageMenuButton())
 		.onAppear {
 			UIScrollView.appearance().keyboardDismissMode = .interactive
 		}
@@ -203,8 +202,24 @@ struct EnterSeedView: View, ViewName {
 
 			HStack(alignment: VerticalAlignment.center, spacing: 0) {
 				Spacer()
-				Text("Your wallet's seed is a list of 12 words.")
+				Text("Your recovery phrase is a list of 12 words in:")
 					.id(topID)
+				Spacer()
+			}
+			
+			HStack(alignment: VerticalAlignment.center, spacing: 0) {
+				Spacer()
+				Menu {
+					ForEach(MnemonicLanguage.allCases, id: \.code) { lang in
+						Button {
+							changeLanguage(lang)
+						} label: {
+							Text(verbatim: "\(lang.flag) \(lang.displayName)")
+						}
+					}
+				} label: {
+					Text(verbatim: "\(selectedLanguage.flag) \(selectedLanguage.displayName)")
+				}
 				Spacer()
 			}
 			
@@ -479,22 +494,6 @@ struct EnterSeedView: View, ViewName {
 			}
 		}
 		.environment(\.layoutDirection, .leftToRight) // issue #237
-	}
-	
-	@ViewBuilder
-	func languageMenuButton() -> some View {
-		
-		Menu {
-			ForEach(MnemonicLanguage.allCases, id: \.code) { lang in
-				Button {
-					changeLanguage(lang)
-				} label: {
-					Text(verbatim: "\(lang.flag) \(lang.displayName)")
-				}
-			}
-		} label: {
-			Text(verbatim: "\(selectedLanguage.flag)")
-		}
 	}
 	
 	func mnemonic(_ idx: Int) -> String {
