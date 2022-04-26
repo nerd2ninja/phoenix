@@ -168,7 +168,7 @@ struct RecoveryPhraseList: View {
 			VStack(alignment: .leading, spacing: 35) {
 				Text(
 					"""
-					The recovery phrase (sometimes called a seed), is a list of 12 English words. \
+					The recovery phrase (sometimes called a seed), is a list of 12 words. \
 					It allows you to recover full access to your funds if needed.
 					"""
 				)
