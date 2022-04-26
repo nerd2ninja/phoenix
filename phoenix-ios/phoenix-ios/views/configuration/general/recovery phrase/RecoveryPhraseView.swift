@@ -1,6 +1,7 @@
 import SwiftUI
 import CloudKit
 import CircularCheckmarkProgress
+import PhoenixShared
 import os.log
 
 #if DEBUG && true
@@ -36,7 +37,7 @@ struct RecoveryPhraseList: View {
 	
 	@State var isDecrypting = false
 	@State var revealSeed = false
-	@State var mnemonics: [String] = []
+	@State var recoveryPhrase: RecoveryPhrase? = nil
 	
 	@State var legal_taskDone: Bool
 	@State var legal_lossRisk: Bool
@@ -95,10 +96,14 @@ struct RecoveryPhraseList: View {
 		.listStyle(.insetGrouped)
 		.sheet(isPresented: $revealSeed) {
 			
-			RecoveryPhraseReveal(
-				isShowing: $revealSeed,
-				mnemonics: $mnemonics
-			)
+			if let recoveryPhrase = recoveryPhrase {
+				RecoveryPhraseReveal(
+					isShowing: $revealSeed,
+					recoveryPhrase: recoveryPhrase
+				)
+			} else {
+				EmptyView()
+			}
 		}
 		.navigationBarTitle(
 			NSLocalizedString("Recovery Phrase", comment: "Navigation bar title"),
@@ -326,8 +331,8 @@ struct RecoveryPhraseList: View {
 		
 		isDecrypting = true
 		
-		let Succeed = {(result: [String]) in
-			mnemonics = result
+		let Succeed = {(result: RecoveryPhrase) in
+			recoveryPhrase = result
 			revealSeed = true
 			isDecrypting = false
 		}
@@ -338,10 +343,10 @@ struct RecoveryPhraseList: View {
 		
 		let enabledSecurity = AppSecurity.shared.enabledSecurity.value
 		if enabledSecurity == .none {
-			AppSecurity.shared.tryUnlockWithKeychain { (mnemonics, _, _) in
+			AppSecurity.shared.tryUnlockWithKeychain { (recoveryPhrase, _, _) in
 				
-				if let mnemonics = mnemonics {
-					Succeed(mnemonics)
+				if let recoveryPhrase = recoveryPhrase {
+					Succeed(recoveryPhrase)
 				} else {
 					Fail()
 				}
@@ -350,8 +355,8 @@ struct RecoveryPhraseList: View {
 			let prompt = NSLocalizedString("Unlock your seed.", comment: "Biometrics prompt")
 			
 			AppSecurity.shared.tryUnlockWithBiometrics(prompt: prompt) { result in
-				if case .success(let mnemonics) = result {
-					Succeed(mnemonics)
+				if case .success(let recoveryPhrase) = result {
+					Succeed(recoveryPhrase)
 				} else {
 					Fail()
 				}
@@ -653,9 +658,17 @@ fileprivate struct SyncErrorDetails: View, ViewName {
 fileprivate struct RecoveryPhraseReveal: View {
 	
 	@Binding var isShowing: Bool
-	@Binding var mnemonics: [String]
+	let recoveryPhrase: RecoveryPhrase
+	let language: MnemonicLanguage
+	
+	init(isShowing: Binding<Bool>, recoveryPhrase: RecoveryPhrase) {
+		self._isShowing = isShowing
+		self.recoveryPhrase = recoveryPhrase
+		self.language = MnemonicLanguage.fromLanguageCode(recoveryPhrase.languageCode) ?? MnemonicLanguage.english
+	}
 	
 	func mnemonic(_ idx: Int) -> String {
+		let mnemonics = recoveryPhrase.mnemonicsArray
 		return (mnemonics.count > idx) ? mnemonics[idx] : " "
 	}
 	
@@ -666,7 +679,10 @@ fileprivate struct RecoveryPhraseReveal: View {
 			// close button
 			// (required for landscapse mode, where swipe to dismiss isn't possible)
 			VStack {
-				HStack {
+				HStack(alignment: VerticalAlignment.center, spacing: 0) {
+					Text(verbatim: "\(language.flag) \(language.displayName)")
+						.font(.callout)
+						.foregroundColor(.secondary)
 					Spacer()
 					Button {
 						close()
@@ -770,18 +786,19 @@ fileprivate struct RecoveryPhraseReveal: View {
 class RecoveryPhraseView_Previews: PreviewProvider {
 	
 	@State static var revealSeed: Bool = true
-	@State static var testMnemonics = [
-		"witch", "collapse", "practice", "feed", "shame", "open",
-		"despair", "creek", "road", "again", "ice", "least"
-	]
+	
+	static let recoveryPhrase = RecoveryPhrase(
+		mnemonics: "witch collapse practice feed shame open despair creek road again ice least",
+		languageCode: MnemonicLanguage.english.code
+	)
 	
 	static var previews: some View {
 		
-		RecoveryPhraseReveal(isShowing: $revealSeed, mnemonics: $testMnemonics)
+		RecoveryPhraseReveal(isShowing: $revealSeed, recoveryPhrase: recoveryPhrase)
 			.preferredColorScheme(.light)
 			.previewDevice("iPhone 8")
 		
-		RecoveryPhraseReveal(isShowing: $revealSeed, mnemonics: $testMnemonics)
+		RecoveryPhraseReveal(isShowing: $revealSeed, recoveryPhrase: recoveryPhrase)
 			.preferredColorScheme(.dark)
 			.previewDevice("iPhone 8")
 	}
