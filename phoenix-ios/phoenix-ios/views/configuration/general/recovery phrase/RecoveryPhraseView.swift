@@ -655,16 +655,21 @@ fileprivate struct SyncErrorDetails: View, ViewName {
 	}
 }
 
-fileprivate struct RecoveryPhraseReveal: View {
+fileprivate struct RecoveryPhraseReveal: View, ViewName {
 	
 	@Binding var isShowing: Bool
 	let recoveryPhrase: RecoveryPhrase
 	let language: MnemonicLanguage
 	
+	@State var showCopyOptions = false
+	
+	@StateObject var toast = Toast()
+	@Environment(\.colorScheme) var colorScheme: ColorScheme
+	
 	init(isShowing: Binding<Bool>, recoveryPhrase: RecoveryPhrase) {
 		self._isShowing = isShowing
 		self.recoveryPhrase = recoveryPhrase
-		self.language = MnemonicLanguage.fromLanguageCode(recoveryPhrase.languageCode) ?? MnemonicLanguage.english
+		self.language = recoveryPhrase.language ?? MnemonicLanguage.english
 	}
 	
 	func mnemonic(_ idx: Int) -> String {
@@ -672,12 +677,13 @@ fileprivate struct RecoveryPhraseReveal: View {
 		return (mnemonics.count > idx) ? mnemonics[idx] : " "
 	}
 	
+	@ViewBuilder
 	var body: some View {
 		
 		ZStack {
 			
 			// close button
-			// (required for landscapse mode, where swipe to dismiss isn't possible)
+			// (required for landscape mode, where swipe to dismiss isn't possible)
 			VStack {
 				HStack(alignment: VerticalAlignment.center, spacing: 0) {
 					Text(verbatim: "\(language.flag) \(language.displayName)")
@@ -697,9 +703,11 @@ fileprivate struct RecoveryPhraseReveal: View {
 			.padding()
 			
 			main
+			toast.view()
 		}
 	}
 	
+	@ViewBuilder
 	var main: some View {
 		
 		VStack {
@@ -767,6 +775,8 @@ fileprivate struct RecoveryPhraseReveal: View {
 			Spacer()
 			Spacer()
 			
+			copyButton
+				.padding(.bottom, 6)
 			Text("BIP39 seed with standard BIP84 derivation path")
 				.font(.footnote)
 				.foregroundColor(.secondary)
@@ -777,8 +787,107 @@ fileprivate struct RecoveryPhraseReveal: View {
 		.padding(.bottom, 20)
 	}
 	
+	@ViewBuilder
+	var copyButton: some View {
+		
+		let xprv = AppDelegate.isTestnet ? "vprv" : "zprv"
+		let xpub = AppDelegate.isTestnet ? "vpub" : "zpub"
+		
+		HStack(alignment: VerticalAlignment.center, spacing: 0) {
+			Spacer()
+			if #available(iOS 15.0, *) {
+				
+				Button {
+					showCopyOptions = true
+				} label: {
+					Text("Copy…").font(.title3)
+				}
+				.confirmationDialog("What would you like to copy?",
+					isPresented: $showCopyOptions,
+					titleVisibility: .automatic
+				) {
+					// Note: confirmationDialog strips all formatting from Text items.
+					// So we don't get to play with fonts or colors here.
+					Button("Recovery phrase (12 words)") {
+						copyRecoveryPhrase()
+					}
+					Button("Account extended private key (\(xprv))") {
+						copyExtPrivKey()
+					}
+					Button("Account extended public key (\(xpub))") {
+						copyExtPubKey()
+					}
+				}
+				
+			} else /* iOS 14 */ {
+				
+				Button {
+					showCopyOptions = true
+				} label: {
+					Text("Copy…").font(.title3)
+				}
+				.actionSheet(isPresented: $showCopyOptions) {
+					ActionSheet(
+						title: Text("What would you like to copy?"),
+						buttons: [
+							.default(Text("Recovery phrase (12 words)")) {
+								copyRecoveryPhrase()
+							},
+							.default(Text("Account extended private key (\(xprv))")) {
+								copyExtPrivKey()
+							},
+							.default(Text("Account extended public key (\(xpub))")) {
+								copyExtPubKey()
+							},
+						]
+					)
+				}
+				
+			}
+			Spacer()
+		}
+	}
+	
+	func copyRecoveryPhrase() {
+		log.trace("[\(viewName)] copyRecoveryPhrase()")
+		
+		copy(recoveryPhrase.mnemonics)
+	}
+	
+	func copyExtPrivKey() {
+		log.trace("[\(viewName)] copyExtPrivKey()")
+		
+		let business = AppDelegate.get().business
+		if let xprv = business.walletManager.getXprv()?.first {
+			copy(xprv as String)
+		}
+	}
+	
+	func copyExtPubKey() {
+		log.trace("[\(viewName)] copyExtPubKey()")
+		
+		let business = AppDelegate.get().business
+		if let xpub = business.walletManager.getXpub()?.first {
+			copy(xpub as String)
+		}
+	}
+	
+	private func copy(_ string: String) {
+		log.trace("[\(viewName)] copy()")
+		
+		UIPasteboard.general.string = string
+		AppDelegate.get().clearPasteboardOnReturnToApp = true
+		toast.pop(
+			Text("Pasteboard will be cleared when you return to Phoenix.")
+				.multilineTextAlignment(.center)
+				.anyView,
+			colorScheme: colorScheme.opposite,
+			duration: 4.0 // seconds
+		)
+	}
+	
 	func close() {
-		log.trace("[RecoverySeedReveal] close()")
+		log.trace("[\(viewName)] close()")
 		isShowing = false
 	}
 }
@@ -789,7 +898,7 @@ class RecoveryPhraseView_Previews: PreviewProvider {
 	
 	static let recoveryPhrase = RecoveryPhrase(
 		mnemonics: "witch collapse practice feed shame open despair creek road again ice least",
-		languageCode: MnemonicLanguage.english.code
+		language: MnemonicLanguage.english
 	)
 	
 	static var previews: some View {
